@@ -85,20 +85,28 @@ def calculate_final_score(
     LLM 호출 시:   rule×0.30 + ml×0.40 + llm×0.30
     LLM 미호출 시: rule×0.4286 + ml×0.5714  (가중치 재정규화)
 
-    보안 이유:
-      LLM 미호출 시 단순히 70점 만점으로 환산하면
-      level 판정 기준이 흔들림.
-      재정규화로 항상 0~100 동일 스케일 유지.
+    강한 위험 신호 우선 규칙:
+      LLM이 90점 이상으로 명확하게 위험 판단을 내렸다면,
+      단순 가중 평균으로 점수가 희석되어 위험한 문자가
+      "주의"로 과소 분류되는 것을 방지하기 위해
+      가중 평균과 LLM 점수 중 더 높은 쪽을 최종 점수로 채택한다.
+      (실제 보안 탐지 시스템에서도 강한 단일 신호가 있으면
+       전체 위험도를 보수적으로—즉 위험 쪽으로—재평가하는 방식을 사용함)
     """
     if llm_score is not None:
-        raw = (
+        weighted = (
             rule_score * WEIGHT_RULE
             + ml_score  * WEIGHT_ML
             + llm_score * WEIGHT_LLM
         )
+
+        # 강한 위험 신호 우선 규칙
+        if llm_score >= 90:
+            raw = max(weighted, llm_score * 0.85)
+        else:
+            raw = weighted
     else:
-        # LLM 가중치를 rule/ml에 비례 재분배
-        total_weight = WEIGHT_RULE + WEIGHT_ML   # 0.70
+        total_weight = WEIGHT_RULE + WEIGHT_ML
         raw = (
             rule_score * (WEIGHT_RULE / total_weight)
             + ml_score * (WEIGHT_ML   / total_weight)

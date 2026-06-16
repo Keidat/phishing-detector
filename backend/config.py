@@ -31,8 +31,8 @@ MAX_TEXT_LENGTH: int = 1000
 
 # ── LLM 설정 ───────────────────────────────────
 # gemini-1.5-flash: 무료 티어 지원, 빠른 응답 속도
-LLM_MODEL: str = "gemini-2.5-flash"
-LLM_MAX_TOKENS: int = 1024
+LLM_MODEL: str = "gemini-flash-lite-latest"
+LLM_MAX_TOKENS: int = 2048
 
 # ── 점수 임계값 ─────────────────────────────────
 # 40~70점 구간에서만 LLM 호출 (비용 및 속도 최적화)

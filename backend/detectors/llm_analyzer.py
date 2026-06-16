@@ -141,6 +141,16 @@ def parse_llm_response(raw: str) -> dict | None:
         except json.JSONDecodeError:
             pass
 
+    # 4차: 잘린 JSON 복구 시도
+    # score는 찾았지만 reason이 닫히지 않은 경우, score만이라도 살린다
+    score_match = re.search(r'"score"\s*:\s*(\d+)', raw)
+    reason_match = re.search(r'"reason"\s*:\s*"([^"]*)', raw)
+    if score_match:
+        return {
+            "score": int(score_match.group(1)),
+            "reason": (reason_match.group(1) if reason_match else "응답이 일부만 수신되었습니다.") + " (응답 일부 누락)",
+        }
+
     return None
 
 
