@@ -11,36 +11,35 @@ config.py
 import os
 from dotenv import load_dotenv
 
-# 프로젝트 루트의 .env 파일 로드
 load_dotenv()
 
 # ── API 키 ─────────────────────────────────────
-# 환경변수에서 읽기, 없으면 빈 문자열 (해당 기능 비활성화)
 VIRUSTOTAL_API_KEY: str = os.getenv("VIRUSTOTAL_API_KEY", "")
-ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")  # Anthropic → Gemini로 변경
 
 # ── 서버 설정 ───────────────────────────────────
 ALLOWED_ORIGINS: list[str] = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:5500"  # 개발 기본값
+    "http://localhost:3000,http://127.0.0.1:5500"
 ).split(",")
 
-# ── Rate Limiting 설정 ──────────────────────────
+# ── Rate Limiting ───────────────────────────────
 RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "10"))
 
 # ── 입력 제한 ───────────────────────────────────
-MAX_TEXT_LENGTH: int = 1000  # 문자 메시지 최대 길이
+MAX_TEXT_LENGTH: int = 1000
 
 # ── LLM 설정 ───────────────────────────────────
-LLM_MODEL: str = "claude-sonnet-4-6"
-LLM_MAX_TOKENS: int = 500
+# gemini-1.5-flash: 무료 티어 지원, 빠른 응답 속도
+LLM_MODEL: str = "gemini-2.5-flash"
+LLM_MAX_TOKENS: int = 1024
 
 # ── 점수 임계값 ─────────────────────────────────
-# 이 구간(40~70)에서만 LLM API를 호출해 비용과 속도를 최적화
+# 40~70점 구간에서만 LLM 호출 (비용 및 속도 최적화)
 LLM_CALL_MIN: int = 40
 LLM_CALL_MAX: int = 70
 
 # ── 가중치 ─────────────────────────────────────
-WEIGHT_RULE: float = 0.30   # 규칙 기반 30%
-WEIGHT_ML: float = 0.40     # ML 모델  40%
-WEIGHT_LLM: float = 0.30    # LLM      30%
+WEIGHT_RULE: float = 0.30
+WEIGHT_ML: float   = 0.40
+WEIGHT_LLM: float  = 0.30

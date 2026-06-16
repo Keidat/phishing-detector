@@ -154,8 +154,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "no-referrer"
 
         # Content-Security-Policy
-        # 이유: API 서버이므로 스크립트/스타일 등 불필요한 리소스 로드 전면 차단
-        response.headers["Content-Security-Policy"] = "default-src 'none'"
+        # 이유: API 서버이므로 기본적으로 외부 리소스 로드를 차단하되,
+        #       /docs, /redoc (Swagger UI)은 CDN 리소스가 필요해 예외 처리
+        if request.url.path in ("/docs", "/redoc"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self' https://cdn.jsdelivr.net "
+                "https://fastapi.tiangolo.com; "
+                "img-src 'self' data: https://fastapi.tiangolo.com; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = "default-src 'none'"
 
         # Strict-Transport-Security
         # 이유: HTTPS 강제 — HTTP 다운그레이드를 통한 중간자(MITM) 공격 방어

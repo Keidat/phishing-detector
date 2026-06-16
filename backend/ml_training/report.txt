@@ -1,0 +1,16 @@
+정확도: 0.9310
+AUC-ROC: 0.9714
+F1 (5-fold): 0.9233 ± 0.0553
+
+              precision    recall  f1-score   support
+
+          정상       0.88      1.00      0.93        14
+         스미싱       1.00      0.87      0.93        15
+
+    accuracy                           0.93        29
+   macro avg       0.94      0.93      0.93        29
+weighted avg       0.94      0.93      0.93        29
+
+혼동 행렬:
+[[14  0]
+ [ 2 13]]

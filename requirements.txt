@@ -1,34 +1,24 @@
-# ═══════════════════════════════════════════════════════
-# requirements.txt
-# PhishGuard — 피싱 문자 탐지 서비스 Python 의존성
-#
-# 설치 방법:
-#   pip install -r requirements.txt
-#
-# Python 버전: 3.11 이상 권장 (타입 힌트 | 문법 사용)
-# ═══════════════════════════════════════════════════════
-
 # ── 웹 프레임워크 ──────────────────────────────────────
-fastapi==0.115.5          # FastAPI 본체 (비동기 API 서버)
-uvicorn[standard]==0.32.1 # ASGI 서버 (FastAPI 실행용)
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
 
 # ── 입력 검증 ──────────────────────────────────────────
-pydantic==2.10.3          # 타입 기반 데이터 검증 (FastAPI 내장)
-python-dotenv==1.0.1      # .env 파일 환경변수 로드
+pydantic==2.10.3
+python-dotenv==1.0.1
 
 # ── 보안 ───────────────────────────────────────────────
-slowapi==0.1.9            # Rate Limiting (IP당 분당 요청 제한)
+slowapi==0.1.9
 
 # ── HTTP 클라이언트 ────────────────────────────────────
-httpx==0.28.1             # 비동기 HTTP 클라이언트 (VirusTotal API 호출)
+httpx==0.28.1
 
-# ── LLM API ────────────────────────────────────────────
-anthropic==0.40.0         # Claude API SDK
+# ── LLM API (Anthropic → Google Gemini로 변경) ─────────
+google-generativeai==0.8.3
 
 # ── ML 모델 ────────────────────────────────────────────
-scikit-learn==1.5.2       # TF-IDF + Logistic Regression
-joblib==1.4.2             # 모델 직렬화 (.pkl 저장/로드)
-numpy==1.26.4             # 수치 연산 (scikit-learn 의존성)
+scikit-learn==1.5.2
+joblib==1.4.2
+numpy>=2.0
 
 # ── 데이터 처리 ────────────────────────────────────────
-pandas==2.2.3             # 데이터셋 CSV 로드 및 전처리
+pandas==2.2.3
