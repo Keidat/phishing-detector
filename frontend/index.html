@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhishGuard — 실시간 스미싱 탐지</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 배경 그리드 (터미널/매트릭스 느낌) -->
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <!-- 스캔 라인 오버레이 (분석 중 표시) -->
+  <div class="scan-overlay" id="scanOverlay" aria-hidden="true">
+    <div class="scan-line"></div>
+    <div class="scan-text">SCANNING...</div>
+  </div>
+
+  <div class="container">
+
+    <!-- ── 헤더 ──────────────────────────────────── -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-bracket">[</span>
+        <span class="logo-text">PhishGuard</span>
+        <span class="logo-bracket">]</span>
+      </div>
+      <p class="tagline">하이브리드 AI 기반 실시간 스미싱 탐지 시스템</p>
+      <div class="badge-row">
+        <span class="badge">SDGs 16</span>
+        <span class="badge">규칙 기반</span>
+        <span class="badge">ML 모델</span>
+        <span class="badge">LLM 분석</span>
+      </div>
+    </header>
+
+    <!-- ── 입력 섹션 ──────────────────────────────── -->
+    <section class="input-section">
+      <label class="input-label" for="msgInput">
+        <span class="label-prefix">&gt;</span> 분석할 문자 메시지 붙여넣기
+      </label>
+      <div class="textarea-wrapper">
+        <textarea
+          id="msgInput"
+          class="msg-input"
+          placeholder="의심스러운 문자를 여기에 붙여넣으세요&#10;예) [국민은행] 계좌가 정지되었습니다. 즉시 확인: http://bit.ly/..."
+          maxlength="1000"
+          spellcheck="false"
+        ></textarea>
+        <div class="char-counter">
+          <span id="charCount">0</span> / 1000
+        </div>
+      </div>
+
+      <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">
+        <span class="btn-icon">⬡</span>
+        <span class="btn-text">분석하기</span>
+        <span class="btn-shortcut">Enter↵</span>
+      </button>
+
+      <!-- 샘플 문자 버튼 -->
+      <div class="sample-row">
+        <span class="sample-label">샘플:</span>
+        <button class="sample-btn" onclick="loadSample('smishing')">스미싱 예시</button>
+        <button class="sample-btn" onclick="loadSample('normal')">정상 예시</button>
+      </div>
+    </section>
+
+    <!-- ── 결과 섹션 (처음엔 숨김) ────────────────── -->
+    <section class="result-section" id="resultSection" hidden>
+
+      <!-- 최종 점수 + 레벨 -->
+      <div class="score-card" id="scoreCard">
+        <div class="score-header">
+          <span class="result-label">분석 결과</span>
+          <span class="level-badge" id="levelBadge">—</span>
+        </div>
+
+        <!-- 위험도 게이지 -->
+        <div class="gauge-wrapper">
+          <div class="gauge-track">
+            <div class="gauge-fill" id="gaugeFill"></div>
+            <div class="gauge-marker safe">40</div>
+            <div class="gauge-marker danger">70</div>
+          </div>
+          <div class="gauge-labels">
+            <span>0</span>
+            <span>안전</span>
+            <span>주의</span>
+            <span>위험</span>
+            <span>100</span>
+          </div>
+        </div>
+
+        <div class="score-number">
+          <span id="scoreDisplay">0</span>
+          <span class="score-unit">/ 100</span>
+        </div>
+
+        <!-- 모듈별 점수 분해 -->
+        <div class="score-breakdown">
+          <div class="breakdown-item">
+            <span class="breakdown-label">규칙 기반</span>
+            <div class="breakdown-bar-track">
+              <div class="breakdown-bar" id="ruleBar"></div>
+            </div>
+            <span class="breakdown-score" id="ruleScore">—</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="breakdown-label">ML 모델</span>
+            <div class="breakdown-bar-track">
+              <div class="breakdown-bar" id="mlBar"></div>
+            </div>
+            <span class="breakdown-score" id="mlScore">—</span>
+          </div>
+          <div class="breakdown-item" id="llmRow" hidden>
+            <span class="breakdown-label">LLM 분석</span>
+            <div class="breakdown-bar-track">
+              <div class="breakdown-bar" id="llmBar"></div>
+            </div>
+            <span class="breakdown-score" id="llmScore">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LLM 자연어 설명 -->
+      <div class="llm-card" id="llmCard" hidden>
+        <div class="card-header">
+          <span class="card-icon">◈</span> AI 분석 의견
+          <span class="llm-badge">claude-sonnet-4-6</span>
+        </div>
+        <p class="llm-reason" id="llmReason"></p>
+      </div>
+
+      <!-- 탐지 항목 목록 -->
+      <div class="detected-card" id="detectedCard" hidden>
+        <div class="card-header">
+          <span class="card-icon">◉</span> 탐지된 위험 요소
+          <span class="detected-count" id="detectedCount"></span>
+        </div>
+        <div class="detected-list" id="detectedList"></div>
+      </div>
+
+      <!-- 원문 하이라이트 -->
+      <div class="highlight-card" id="highlightCard" hidden>
+        <div class="card-header">
+          <span class="card-icon">◎</span> 원문 분석
+        </div>
+        <div class="highlighted-text" id="highlightedText"></div>
+      </div>
+
+      <!-- 대처법 -->
+      <div class="advice-card" id="adviceCard">
+        <div class="card-header">
+          <span class="card-icon">▶</span> 대처법
+        </div>
+        <p class="advice-text" id="adviceText"></p>
+      </div>
+
+      <!-- 재분석 버튼 -->
+      <button class="reset-btn" onclick="resetUI()">
+        ↺ 새 문자 분석하기
+      </button>
+
+    </section>
+
+  </div><!-- /container -->
+
+  <footer class="footer">
+    <span>PhishGuard · SDGs 16 평화·정의·제도 · 한국어 스미싱 탐지</span>
+    <span>신고: KISA 118</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
