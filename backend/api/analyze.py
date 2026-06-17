@@ -52,14 +52,23 @@ def get_advice(level: str, detected: list[dict]) -> str:
     위험 레벨과 탐지 항목에 맞는 맞춤형 대처법을 반환한다.
     """
     types = {item["type"] for item in detected}
+    has_url = "URL" in types or "short_url" in types
+    has_phone = "phone_lure" in types
 
     if level == "위험":
-        base = "⛔ 이 문자는 스미싱(피싱)으로 의심됩니다. 절대 링크를 클릭하지 마세요."
+        base = "⛔ 이 문자는 스미싱(피싱)으로 의심됩니다."
         extras = []
-        if "URL" in types or "short_url" in types:
-            extras.append("URL을 클릭했다면 즉시 해당 앱을 삭제하고 백신 앱으로 검사하세요.")
+
+        if has_url:
+            extras.append("절대 링크를 클릭하지 마세요. 클릭했다면 즉시 해당 앱을 삭제하고 백신 앱으로 검사하세요.")
+        if has_phone:
+            extras.append("문자에 적힌 번호로 절대 전화하지 마세요. 해당 기관의 공식 대표번호로 직접 확인하세요.")
         if "personal_info" in types:
             extras.append("개인정보나 금융정보를 입력했다면 즉시 해당 기관에 신고하고 비밀번호를 변경하세요.")
+        if not has_url and not has_phone and "personal_info" not in types:
+            # URL/전화/개인정보 패턴 없이 LLM 판단만으로 위험도가 높게 나온 경우
+            extras.append("문자 내용이 의심스럽습니다. 발신자에게 직접 연락하지 말고 사실 여부를 따로 확인하세요.")
+
         extras.append("한국인터넷진흥원(KISA) 불법스팸대응센터 118로 신고할 수 있습니다.")
         return " ".join([base] + extras)
 
