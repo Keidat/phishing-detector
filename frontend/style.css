@@ -519,6 +519,7 @@ body {
 .type-short_url { background: rgba(255,179,0,0.12);  color: var(--warn);   border: 1px solid rgba(255,179,0,0.25); }
 .type-keyword   { background: rgba(255,179,0,0.12);  color: var(--warn);   border: 1px solid rgba(255,179,0,0.25); }
 .type-personal_info { background: rgba(255,59,59,0.15); color: var(--danger); border: 1px solid rgba(255,59,59,0.3); }
+.type-phone_lure { background: rgba(255,59,59,0.12); color: var(--danger); border: 1px solid rgba(255,59,59,0.25); }
 
 .detected-content { min-width: 0; }
 

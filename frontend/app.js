@@ -34,6 +34,7 @@ const TYPE_LABELS = {
   short_url:     "단축 URL",
   keyword:       "위험 키워드",
   personal_info: "개인정보 요구",
+  phone_lure:    "전화 유도",
 };
 
 // ── DOM 요소 캐싱 ──────────────────────────────────────
