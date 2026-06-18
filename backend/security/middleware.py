@@ -164,8 +164,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
                 "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;"
             )
-        else:
+        elif request.url.path == "/analyze":
+            # API 엔드포인트는 외부 리소스가 필요 없으므로 완전 차단 유지
             response.headers["Content-Security-Policy"] = "default-src 'none'"
+        else:
+            # 프론트엔드 페이지(index.html, style.css, app.js 등)는
+            # Google Fonts CDN과 자체 스크립트/스타일을 허용해야 함
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "script-src 'self' 'unsafe-inline'; "
+                "connect-src 'self';"
+            )
 
         # Strict-Transport-Security
         # 이유: HTTPS 강제 — HTTP 다운그레이드를 통한 중간자(MITM) 공격 방어

@@ -515,7 +515,7 @@ body {
   white-space: nowrap;
 }
 
-.type-url       { background: rgba(255,59,59,0.12);  color: var(--danger); border: 1px solid rgba(255,59,59,0.25); }
+.type-url, .type-URL { background: rgba(255,59,59,0.12);  color: var(--danger); border: 1px solid rgba(255,59,59,0.25); }
 .type-short_url { background: rgba(255,179,0,0.12);  color: var(--warn);   border: 1px solid rgba(255,179,0,0.25); }
 .type-keyword   { background: rgba(255,179,0,0.12);  color: var(--warn);   border: 1px solid rgba(255,179,0,0.25); }
 .type-personal_info { background: rgba(255,59,59,0.15); color: var(--danger); border: 1px solid rgba(255,59,59,0.3); }
@@ -554,7 +554,7 @@ body {
 }
 
 /* 하이라이트 마크 스타일 */
-.highlighted-text mark.hl-url       { background: rgba(255,59,59,0.25);  color: var(--danger); border-radius: 2px; padding: 1px 3px; }
+.highlighted-text mark.hl-url, .highlighted-text mark.hl-URL { background: rgba(255,59,59,0.25);  color: var(--danger); border-radius: 2px; padding: 1px 3px; }
 .highlighted-text mark.hl-short_url { background: rgba(255,179,0,0.25);  color: var(--warn);   border-radius: 2px; padding: 1px 3px; }
 .highlighted-text mark.hl-keyword   { background: rgba(255,179,0,0.2);   color: var(--warn);   border-radius: 2px; padding: 1px 3px; }
 .highlighted-text mark.hl-personal_info { background: rgba(255,59,59,0.3); color: var(--danger); border-radius: 2px; padding: 1px 3px; font-weight: 600; }

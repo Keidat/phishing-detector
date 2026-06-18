@@ -17,7 +17,8 @@
  *   - 입력 1000자 제한 (서버와 동일 기준)
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "";
+// const API_BASE = "http://localhost:8000";
 
 // ── 샘플 문자 ──────────────────────────────────────────
 const SAMPLES = {
@@ -304,8 +305,11 @@ async function runAnalysis() {
   try {
     const resp = await fetch(`${API_BASE}/analyze`, {
       method:      "POST",
-      headers:     { "Content-Type": "application/json" },
-      credentials: "omit",  // 보안: 자격증명(쿠키 등) 전송 안 함
+      headers:     {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",  // ngrok 무료 버전 경고 페이지 건너뛰기
+      },
+      credentials: "omit",
       body:        JSON.stringify({ text }),
     });
 

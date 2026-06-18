@@ -16,6 +16,8 @@ FastAPI 앱 진입점 — 보안 강화 최종 버전
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -78,9 +80,9 @@ app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False,           # 쿠키 공유 비활성화
-    allow_methods=["POST", "OPTIONS"], # 필요한 메서드만 허용 (최소 권한)
-    allow_headers=["Content-Type"],
+    allow_credentials=False,
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["Content-Type", "ngrok-skip-browser-warning"],
 )
 
 # ── 라우터 등록 ────────────────────────────────────────────────────
@@ -97,3 +99,9 @@ async def health_check():
         "status": "ok",
         "ml_model_loaded": is_model_loaded(),
     }
+
+# ── 프론트엔드 정적 파일 서빙 ────────────────────────────────────
+# ngrok 터널 1개로 백엔드+프론트엔드를 함께 제공하기 위한 설정
+# (무료 ngrok은 터널을 1개만 열 수 있으므로 이렇게 통합)
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

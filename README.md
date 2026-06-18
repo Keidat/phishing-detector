@@ -218,21 +218,28 @@ python ml_training/train.py
 > AI Hub(aihub.or.kr)에서 "스미싱" 데이터셋을 내려받아
 > `backend/ml_training/dataset/`에 넣고 `train.py`를 재실행하면 성능이 향상됩니다.
 
-### 4. 백엔드 서버 실행
+### 4. 서버 실행 (백엔드 + 프론트엔드 통합)
+
+FastAPI 서버가 백엔드 API와 프론트엔드 정적 파일을 함께 제공합니다.
 
 ```bash
 cd backend
 uvicorn main:app --reload --port 8000
 ```
 
-API 문서: http://localhost:8000/docs
+브라우저에서 http://localhost:8000 으로 접속하면 바로 PhishGuard 화면이 나타납니다.
+API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
 
-### 5. 프론트엔드 실행
+### 5. 외부 공개 (발표/시연용, 선택사항)
 
-VS Code **Live Server** 확장 프로그램으로 `frontend/index.html`을 열거나,
-브라우저에서 직접 파일을 엽니다.
+같은 네트워크가 아닌 외부에서도 접속 가능하게 하려면 ngrok을 사용합니다.
 
-> 기본 포트 `http://127.0.0.1:5500` — `.env`의 `ALLOWED_ORIGINS`에 포함되어야 합니다.
+```bash
+ngrok http 8000
+```
+
+발급된 `https://....ngrok-free.dev` 주소를 공유하면 누구나 접속할 수 있습니다.
+첫 접속 시 ngrok 보안 경고 화면이 한 번 표시되며, `Visit Site`를 누르면 됩니다.
 
 ### 6. 시연
 
