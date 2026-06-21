@@ -3,45 +3,68 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PhishGuard — 실시간 스미싱 탐지</title>
+  <title>피싱 문자 확인기 — PhishGuard</title>
+
+  <!-- 라이트 모드 기본: Noto Sans KR (가독성 최우선) -->
+  <!-- 다크 모드용: JetBrains Mono + Inter (기존 유지) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- 배경 그리드 (터미널/매트릭스 느낌) -->
+  <!-- 배경 그리드 (다크 모드에서만 표시) -->
   <div class="bg-grid" aria-hidden="true"></div>
 
   <!-- 스캔 라인 오버레이 (분석 중 표시) -->
   <div class="scan-overlay" id="scanOverlay" aria-hidden="true">
     <div class="scan-line"></div>
-    <div class="scan-text">SCANNING...</div>
+    <div class="scan-text">분석 중...</div>
   </div>
+
+  <!-- ── 다크 모드 전환 버튼 (우측 하단 고정) ── -->
+  <!-- 눈에 잘 안 띄게: 평소 opacity 0.4, hover 시 0.8 -->
+  <button
+    class="theme-toggle"
+    id="themeToggle"
+    aria-label="다크 모드로 전환"
+    title="다크 모드로 전환"
+    onclick="toggleTheme()"
+  >
+    <span class="theme-icon" id="themeIcon">🌙</span>
+  </button>
 
   <div class="container">
 
     <!-- ── 헤더 ──────────────────────────────────── -->
     <header class="header">
+
+      <!-- 한글 제목: 가장 크고 먼저 보이게 (대상 사용자 우선) -->
+      <p class="logo-korean">피싱 문자 확인기</p>
+
+      <!-- 브랜드 로고: 영문은 보조로 작게 -->
       <div class="logo">
         <span class="logo-bracket">[</span>
         <span class="logo-text">PhishGuard</span>
         <span class="logo-bracket">]</span>
       </div>
-      <p class="tagline">하이브리드 AI 기반 실시간 스미싱 탐지 시스템</p>
-      <div class="badge-row">
-        <span class="badge">SDGs 16</span>
-        <span class="badge">규칙 기반</span>
-        <span class="badge">ML 모델</span>
-        <span class="badge">LLM 분석</span>
-      </div>
+
+      <!-- tagline: 쉬운 말로 -->
+      <p class="tagline">사기 문자인지 AI가 바로 확인해드려요</p>
+
+      <!-- 기술 배지 → 친근한 설명 한 줄로 대체 (SDGs 16은 푸터에 보존) -->
+      <p class="header-desc">여러 가지 방법으로 꼼꼼하게 확인합니다</p>
+      <p class="header-detail">의심 단어 찾기 · 학습된 AI 분석 · 똑똑한 AI의 최종 판단</p>
+
     </header>
 
     <!-- ── 입력 섹션 ──────────────────────────────── -->
     <section class="input-section">
       <label class="input-label" for="msgInput">
-        <span class="label-prefix">&gt;</span> 분석할 문자 메시지 붙여넣기
+        <!-- 수정 5: "분석할 문자 메시지 붙여넣기" → 더 친근한 표현 -->
+        <span class="label-prefix">▶</span> 확인할 문자 내용을 붙여넣으세요
       </label>
       <div class="textarea-wrapper">
         <textarea
@@ -59,14 +82,17 @@
       <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">
         <span class="btn-icon">⬡</span>
         <span class="btn-text">분석하기</span>
-        <span class="btn-shortcut">Enter↵</span>
+        <!-- 수정 5: Enter↵ 힌트는 유지하되 더 흐리게 처리 (CSS로 opacity 낮춤) -->
+        <!-- 데스크탑 사용자에게는 유용한 힌트, 모바일에서는 이미 숨겨짐 -->
+        <span class="btn-shortcut" aria-hidden="true">Enter↵</span>
       </button>
 
-      <!-- 샘플 문자 버튼 -->
+      <!-- 수정 4: 샘플 버튼 — 전문 용어 "스미싱" 제거 -->
       <div class="sample-row">
-        <span class="sample-label">샘플:</span>
-        <button class="sample-btn" onclick="loadSample('smishing')">스미싱 예시</button>
-        <button class="sample-btn" onclick="loadSample('normal')">정상 예시</button>
+        <span class="sample-label">예시 문자:</span>
+        <!-- loadSample('smishing') 내부 키는 그대로 유지 -->
+        <button class="sample-btn" onclick="loadSample('smishing')">위험한 문자 예시</button>
+        <button class="sample-btn" onclick="loadSample('normal')">안전한 문자 예시</button>
       </div>
     </section>
 
@@ -101,24 +127,28 @@
           <span class="score-unit">/ 100</span>
         </div>
 
-        <!-- 모듈별 점수 분해 -->
+        <!-- 수정 2: 모듈별 점수 분해 라벨을 쉬운 말로 변경 -->
+        <!-- id/class는 app.js가 참조하므로 절대 변경 금지 — 텍스트만 변경 -->
         <div class="score-breakdown">
           <div class="breakdown-item">
-            <span class="breakdown-label">규칙 기반</span>
+            <!-- "규칙 기반" → "의심 단어 확인" -->
+            <span class="breakdown-label">의심 단어 확인</span>
             <div class="breakdown-bar-track">
               <div class="breakdown-bar" id="ruleBar"></div>
             </div>
             <span class="breakdown-score" id="ruleScore">—</span>
           </div>
           <div class="breakdown-item">
-            <span class="breakdown-label">ML 모델</span>
+            <!-- "ML 모델" → "AI 패턴 분석" -->
+            <span class="breakdown-label">AI 패턴 분석</span>
             <div class="breakdown-bar-track">
               <div class="breakdown-bar" id="mlBar"></div>
             </div>
             <span class="breakdown-score" id="mlScore">—</span>
           </div>
           <div class="breakdown-item" id="llmRow" hidden>
-            <span class="breakdown-label">LLM 분석</span>
+            <!-- "LLM 분석" → "AI 최종 판단" -->
+            <span class="breakdown-label">AI 최종 판단</span>
             <div class="breakdown-bar-track">
               <div class="breakdown-bar" id="llmBar"></div>
             </div>
@@ -127,43 +157,47 @@
         </div>
       </div>
 
-      <!-- LLM 자연어 설명 -->
+      <!-- 수정 3: LLM 자연어 설명 — 기술 모델명 배지(gemini-flash-lite) 제거 -->
+      <!-- app.js에서 llmBadge 참조 없음 확인 → 단순 제거 -->
       <div class="llm-card" id="llmCard" hidden>
         <div class="card-header">
           <span class="card-icon">◈</span> AI 분석 의견
-          <span class="llm-badge">gemini-flash-lite</span>
+          <!-- <span class="llm-badge">gemini-flash-lite</span> 제거 -->
         </div>
         <p class="llm-reason" id="llmReason"></p>
       </div>
 
       <!-- 탐지 항목 목록 -->
+      <!-- "탐지된 위험 요소" → "발견된 위험 요소" (더 쉬운 표현) -->
       <div class="detected-card" id="detectedCard" hidden>
         <div class="card-header">
-          <span class="card-icon">◉</span> 탐지된 위험 요소
+          <span class="card-icon">◉</span> 발견된 위험 요소
           <span class="detected-count" id="detectedCount"></span>
         </div>
         <div class="detected-list" id="detectedList"></div>
       </div>
 
       <!-- 원문 하이라이트 -->
+      <!-- "원문 분석" → "문자 내용 확인" (더 쉬운 표현) -->
       <div class="highlight-card" id="highlightCard" hidden>
         <div class="card-header">
-          <span class="card-icon">◎</span> 원문 분석
+          <span class="card-icon">◎</span> 문자 내용 확인
         </div>
         <div class="highlighted-text" id="highlightedText"></div>
       </div>
 
       <!-- 대처법 -->
+      <!-- "대처법" → "이렇게 하세요" (더 친근한 표현) -->
       <div class="advice-card" id="adviceCard">
         <div class="card-header">
-          <span class="card-icon">▶</span> 대처법
+          <span class="card-icon">▶</span> 이렇게 하세요
         </div>
         <p class="advice-text" id="adviceText"></p>
       </div>
 
       <!-- 재분석 버튼 -->
       <button class="reset-btn" onclick="resetUI()">
-        ↺ 새 문자 분석하기
+        ↺ 다른 문자 확인하기
       </button>
 
     </section>
@@ -171,7 +205,9 @@
   </div><!-- /container -->
 
   <footer class="footer">
-    <span>PhishGuard · SDGs 16 평화·정의·제도 · 한국어 스미싱 탐지</span>
+    <!-- SDGs 16 정보: 헤더 배지 제거 후 이곳에 보존 (발표·생기부 자료용) -->
+    <span>PhishGuard · SDGs 16 평화·정의·제도</span>
+    <span>규칙 기반 · ML 모델 · LLM 분석</span>
     <span>신고: KISA 118</span>
   </footer>
 

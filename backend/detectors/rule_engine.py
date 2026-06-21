@@ -14,20 +14,24 @@ rule_engine.py
   - VirusTotal API 키는 환경변수로만 관리 (하드코딩 금지)
   - URL은 최대 2000자까지만 처리 (ReDoS 방어)
   - 외부 API 실패 시 graceful degradation (점수에서 제외 후 계속 진행)
+  - 키워드/도메인/패턴 데이터는 SQLite DB에서 로드 (db_loader.py 참조)
 """
 
 import re
 import os
 import httpx
-import asyncio
 from typing import TypedDict
+
+# DB 캐시 접근 함수 임포트
+from database.db_loader import get_cached_rules
+
 
 # ─────────────────────────────────────────────
 # 타입 정의
 # ─────────────────────────────────────────────
 
 class DetectedItem(TypedDict):
-    type: str    # "URL" | "short_url" | "keyword" | "personal_info"
+    type: str    # "URL" | "short_url" | "keyword" | "personal_info" | "phone_lure"
     value: str   # 탐지된 실제 값
     reason: str  # 사람이 읽을 수 있는 이유 설명
 
@@ -49,69 +53,19 @@ URL_PATTERN = re.compile(
 )
 
 # ─────────────────────────────────────────────
-# 2. 단축 URL 도메인 목록
-# ─────────────────────────────────────────────
-# 피싱 공격자들이 악성 URL을 숨기기 위해 단축 URL을 자주 사용함
-SHORT_URL_DOMAINS = {
-    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly",
-    "is.gd", "buff.ly", "adf.ly", "tiny.cc", "lnkd.in",
-    "db.tt", "qr.ae", "po.st", "bc.vc", "s.id",
-    "cutt.ly", "rebrand.ly", "short.io", "han.gl", "me2.do",
-}
-
-# ─────────────────────────────────────────────
-# 3. 긴급성 유도 키워드
-# ─────────────────────────────────────────────
-# 심리적 압박으로 피해자가 URL을 클릭하게 유도하는 표현들
-# 출처: KISA(한국인터넷진흥원) 스미싱 유형 분석 보고서 참조
-URGENCY_KEYWORDS = [
-    # 즉각 행동 유도
-    "즉시", "지금 바로", "빨리", "당장", "긴급",
-    # 계좌/금융 관련 공포 자극
-    "계좌 정지", "계좌정지", "출금 정지", "카드 정지", "이용 정지",
-    "거래 중단", "대출 승인", "대출승인",
-    "정지되었습니다", "제한되었습니다", "동결되었습니다",  # 추가
-    "정책에 의해", "이용 제한", "서비스 중단",              # 추가
-    # 본인 확인 사칭
-    "본인 확인", "본인확인", "인증 필요", "인증번호", "ARS 인증",
-    # 클릭/접속 유도
-    "클릭", "접속 요망", "지금 확인", "바로 확인", "즉각 확인",
-    # 수령/당첨 미끼
-    "수령하세요", "당첨되었습니다", "지급 예정", "환급금",
-    "미수령", "택배 미수령", "반송 예정",
-    # 기관 사칭
-    "건강보험", "국세청", "경찰청", "검찰청", "금융감독원",
-    "우체국", "카카오페이", "네이버페이",
-    # 법적 위협
-    "법적 조치", "고소", "벌금", "과태료",
-]
-
-# ─────────────────────────────────────────────
-# 4. 개인정보 요구 패턴
-# ─────────────────────────────────────────────
-# 정규식으로 개인정보 수집 시도를 탐지
-PERSONAL_INFO_PATTERNS = [
-    (re.compile(r'주민\s*등록\s*번호|주민번호|생년월일'), "주민등록번호 요구"),
-    (re.compile(r'카드\s*번호|신용카드|체크카드\s*번호'), "카드번호 요구"),
-    (re.compile(r'비밀\s*번호|패스워드|password', re.IGNORECASE), "비밀번호 요구"),
-    (re.compile(r'계좌\s*번호|통장\s*번호'), "계좌번호 요구"),
-    (re.compile(r'공인인증서|금융\s*인증서|OTP'), "금융 인증 정보 요구"),
-    (re.compile(r'CVC|CVV|카드\s*뒷\s*3자리'), "카드 보안코드 요구"),
-]
-
-# ─────────────────────────────────────────────
-# 5. 가중치 설정 (합계가 rule_score 100점 기준)
+# 2. 가중치 설정 (합계가 rule_score 100점 기준)
 # ─────────────────────────────────────────────
 WEIGHTS = {
     "virustotal_malicious": 50,  # VirusTotal 악성 판정 — 가장 강력한 신호
-    "short_url": 15,             # 단축 URL — URL 숨김 의도
-    "urgency_keyword": 10,       # 긴급성 키워드 1개당 (최대 30점)
-    "personal_info": 20,         # 개인정보 요구 패턴 1개당 (최대 40점)
-    "url_exists": 5,             # URL 존재 자체도 약한 신호
-    "phone_lure": 15,  # 추가: 전화번호 유도 패턴
+    "short_url":            15,  # 단축 URL — URL 숨김 의도
+    "urgency_keyword":      10,  # 긴급성 키워드 1개당 (최대 30점)
+    "personal_info":        20,  # 개인정보 요구 패턴 1개당 (최대 40점)
+    "url_exists":            5,  # URL 존재 자체도 약한 신호
+    "phone_lure":           15,  # 전화번호 유도 패턴
 }
+
 # ─────────────────────────────────────────────
-# 6. 전화번호 유도 패턴 (신규)
+# 3. 전화번호 유도 패턴
 # ─────────────────────────────────────────────
 # URL 없이 전화번호로 직접 연락을 유도하는 스미싱/보이스피싱 연계형
 # 한국 전화번호 형식: 010-XXXX-XXXX, 02-XXX-XXXX, 1588-XXXX 등
@@ -185,6 +139,14 @@ async def analyze_rules(text: str) -> RuleResult:
     detected: list[DetectedItem] = []
     raw_score = 0  # 가중치 합산 전 원점수
 
+    # ── DB 캐시에서 규칙 데이터 가져오기 ────────
+    # 서버 시작 시 load_rules_from_db()로 미리 캐싱된 데이터를 사용
+    # (매 요청마다 DB를 조회하지 않으므로 성능에 영향 없음)
+    rules = get_cached_rules()
+    urgency_keywords       = rules["urgency_keywords"]        # list[dict]
+    short_url_domains      = rules["short_url_domains"]       # set[str]
+    personal_info_patterns = rules["personal_info_patterns"]  # list[(Pattern, str)]
+
     # ── 1단계: URL 추출 ──────────────────────────────
     urls = URL_PATTERN.findall(text)
     vt_api_key = os.getenv("VIRUSTOTAL_API_KEY", "")
@@ -202,7 +164,7 @@ async def analyze_rules(text: str) -> RuleResult:
         domain_match = re.search(r'(?:https?://)?(?:www\.)?([^/\s]+)', url, re.IGNORECASE)
         if domain_match:
             domain = domain_match.group(1).lower()
-            if domain in SHORT_URL_DOMAINS:
+            if domain in short_url_domains:
                 detected.append({
                     "type": "short_url",
                     "value": url[:100],
@@ -237,7 +199,9 @@ async def analyze_rules(text: str) -> RuleResult:
         raw_score += WEIGHTS["phone_lure"]
 
     # ── 3단계: 긴급성 키워드 탐지 ───────────────────
-    for keyword in URGENCY_KEYWORDS:
+    # DB에서 로드한 urgency_keywords (list of dict) 순회
+    for kw_entry in urgency_keywords:
+        keyword = kw_entry["keyword"]
         if keyword in text:
             detected.append({
                 "type": "keyword",
@@ -250,7 +214,8 @@ async def analyze_rules(text: str) -> RuleResult:
                 break
 
     # ── 4단계: 개인정보 요구 패턴 ───────────────────
-    for pattern, reason in PERSONAL_INFO_PATTERNS:
+    # DB에서 로드한 personal_info_patterns (list of (Pattern, reason)) 순회
+    for pattern, reason in personal_info_patterns:
         match = pattern.search(text)
         if match:
             detected.append({

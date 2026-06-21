@@ -1,7 +1,7 @@
 "use strict";
 /**
  * app.js
- * PhishGuard 프론트엔드 — API 호출 및 결과 렌더링
+ * PhishGuard 프론트엔드 — API 호출, 결과 렌더링, 테마 전환
  *
  * 주요 기능:
  *   1. POST /analyze 호출 + 로딩 스피너(스캔 애니메이션)
@@ -10,6 +10,7 @@
  *   4. 탐지 항목 카드 렌더링
  *   5. 원문 키워드/URL 형광펜 하이라이트
  *   6. 레벨에 따른 색상 변환
+ *   7. [신규] 라이트/다크 모드 토글 — body.dark-mode 클래스 + localStorage 저장
  *
  * 보안 설계:
  *   - textContent 사용 (innerHTML 직접 사용 금지 — XSS 방어)
@@ -30,12 +31,13 @@ const SAMPLES = {
 };
 
 // ── 탐지 타입 한국어 레이블 ────────────────────────────
+// 고령층·정보 취약계층이 이해하기 쉬운 말로 변경
 const TYPE_LABELS = {
-  URL:           "악성 URL",
-  short_url:     "단축 URL",
-  keyword:       "위험 키워드",
-  personal_info: "개인정보 요구",
-  phone_lure:    "전화 유도",
+  URL:           "위험한 인터넷 주소",   // 기존: "악성 URL"
+  short_url:     "짧은 인터넷 주소",    // 기존: "단축 URL"
+  keyword:       "의심 단어",           // 기존: "위험 키워드"
+  personal_info: "개인정보 요구",        // 유지
+  phone_lure:    "전화 유도",           // 유지
 };
 
 // ── DOM 요소 캐싱 ──────────────────────────────────────
@@ -67,7 +69,95 @@ const els = {
   adviceCard:      $("adviceCard"),
   adviceText:      $("adviceText"),
   scoreCard:       $("scoreCard"),
+  themeToggle:     $("themeToggle"),
+  themeIcon:       $("themeIcon"),
 };
+
+// ════════════════════════════════════════════════════════
+// ── 테마 관리 (라이트 / 다크 모드 전환) ─────────────────
+// ════════════════════════════════════════════════════════
+
+/**
+ * localStorage 키: 사용자 선택 테마를 저장
+ * "dark"  → 다크 모드
+ * "light" → 라이트 모드 (기본)
+ * 값 없음 → 라이트 모드 (기본)
+ */
+const THEME_KEY = "phishguard_theme";
+
+/**
+ * 현재 테마를 body 클래스와 버튼 아이콘에 적용
+ * @param {boolean} isDark - true면 다크 모드
+ */
+function applyTheme(isDark) {
+  if (isDark) {
+    // 다크 모드: body에 dark-mode 클래스 추가
+    document.body.classList.add("dark-mode");
+    // 아이콘: 라이트 모드로 전환하는 버튼이므로 ☀️
+    els.themeIcon.textContent = "☀️";
+    // 툴팁 텍스트 업데이트
+    els.themeToggle.setAttribute("aria-label", "라이트 모드로 전환");
+    els.themeToggle.setAttribute("title", "라이트 모드로 전환");
+    // 스캔 텍스트: 다크 모드에서는 영문
+    const scanText = document.querySelector(".scan-text");
+    if (scanText) scanText.textContent = "SCANNING...";
+  } else {
+    // 라이트 모드: dark-mode 클래스 제거
+    document.body.classList.remove("dark-mode");
+    // 아이콘: 다크 모드로 전환하는 버튼이므로 🌙
+    els.themeIcon.textContent = "🌙";
+    // 툴팁 텍스트 업데이트
+    els.themeToggle.setAttribute("aria-label", "다크 모드로 전환");
+    els.themeToggle.setAttribute("title", "다크 모드로 전환");
+    // 스캔 텍스트: 라이트 모드에서는 한국어
+    const scanText = document.querySelector(".scan-text");
+    if (scanText) scanText.textContent = "분석 중...";
+  }
+}
+
+/**
+ * 테마 전환 버튼 클릭 핸들러
+ * 현재 상태를 반전하고 localStorage에 저장
+ */
+function toggleTheme() {
+  // 현재 다크 모드 여부 확인
+  const isDarkNow = document.body.classList.contains("dark-mode");
+  const newIsDark = !isDarkNow;
+
+  // 테마 적용
+  applyTheme(newIsDark);
+
+  // localStorage에 저장 (새로고침 후에도 유지)
+  try {
+    localStorage.setItem(THEME_KEY, newIsDark ? "dark" : "light");
+  } catch (e) {
+    // localStorage 접근 실패 시 무시 (프라이빗 모드 등)
+    console.warn("localStorage 저장 실패:", e);
+  }
+}
+
+/**
+ * 페이지 로드 시 저장된 테마 복원
+ * 저장값 없으면 라이트 모드(기본)
+ */
+function initTheme() {
+  let saved = null;
+  try {
+    saved = localStorage.getItem(THEME_KEY);
+  } catch (e) {
+    // localStorage 읽기 실패 시 무시
+  }
+
+  // "dark" 로 저장된 경우에만 다크 모드 적용, 그 외 모두 라이트 모드
+  applyTheme(saved === "dark");
+}
+
+// 페이지 로드 즉시 테마 초기화
+initTheme();
+
+// ════════════════════════════════════════════════════════
+// ── 이하 기존 기능 — 수정 없이 유지 ─────────────────────
+// ════════════════════════════════════════════════════════
 
 // ── 글자 수 카운터 ──────────────────────────────────────
 els.input.addEventListener("input", () => {
@@ -93,7 +183,7 @@ function loadSample(type) {
 }
 
 // ── HTML 이스케이프 (XSS 방어) ──────────────────────────
-// innerHTML 에 사용자 입력을 넣기 전에 반드시 이스케이프
+// innerHTML에 사용자 입력을 넣기 전에 반드시 이스케이프
 function escapeHtml(str) {
   return str
     .replace(/&/g, "&amp;")
@@ -109,12 +199,17 @@ function hideScanning()  { els.scanOverlay.classList.remove("active"); }
 
 // ── 게이지 + 점수 숫자 애니메이션 ──────────────────────
 function animateScore(targetScore, level) {
-  // 게이지 색상: 레벨에 따라
-  const colorMap = { 안전: "#00ff88", 주의: "#ffb300", 위험: "#ff3b3b" };
-  const color = colorMap[level] || "#4d7cff";
+  // 라이트 모드: 진한 색상 / 다크 모드: 네온 색상
+  const isDark = document.body.classList.contains("dark-mode");
+
+  const colorMapDark  = { 안전: "#00ff88", 주의: "#ffb300", 위험: "#ff3b3b" };
+  const colorMapLight = { 안전: "#2e7d32", 주의: "#f57c00", 위험: "#d32f2f" };
+  const colorMap = isDark ? colorMapDark : colorMapLight;
+  const color = colorMap[level] || (isDark ? "#4d7cff" : "#1a73e8");
 
   els.gaugeFill.style.background = color;
-  els.gaugeFill.style.boxShadow  = `0 0 10px ${color}`;
+  // 다크 모드에서만 네온 글로우 효과
+  els.gaugeFill.style.boxShadow  = isDark ? `0 0 10px ${color}` : "none";
   els.gaugeFill.style.width      = `${targetScore}%`;
 
   // 숫자 카운트업 (0 → targetScore, 800ms)

@@ -24,6 +24,7 @@ from slowapi.errors import RateLimitExceeded
 
 from config import ALLOWED_ORIGINS
 from detectors.ml_model import load_model
+from database.db_loader import load_rules_from_db  # DB 규칙 캐시 로더 추가
 from security.middleware import (
     LoggingMiddleware,
     SecurityHeadersMiddleware,
@@ -36,10 +37,22 @@ from security.middleware import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    시작 시: ML 모델 메모리 로드
-    보안 이유: 요청마다 파일 읽으면 디스크 I/O 과부하 → DoS 취약
+    시작 시:
+      1. ML 모델 메모리 로드
+      2. DB 규칙 데이터 로드 및 캐싱 (키워드/도메인/패턴)
+
+    보안 이유:
+      - 요청마다 파일·DB를 읽으면 디스크 I/O 과부하 → DoS 취약
+      - 서버 시작 시 한 번만 읽어 메모리에 캐싱하여 성능과 안정성 확보
     """
+    # ML 모델 로드 (기존 동작 유지)
     load_model()
+
+    # DB에서 규칙 데이터 로드 및 모듈 캐시에 저장
+    # DB 연결 실패 시 db_loader가 빈 캐시로 graceful하게 처리하므로
+    # 서버 시작이 중단되지 않음
+    load_rules_from_db()
+
     yield
 
 
@@ -93,12 +106,22 @@ app.include_router(analyze_router)
 # ── 헬스체크 ───────────────────────────────────────────────────────
 @app.get("/health")
 async def health_check():
-    """서버 상태 + ML 모델 로드 여부 확인"""
+    """서버 상태 + ML 모델 로드 여부 + DB 규칙 로드 여부 확인"""
     from detectors.ml_model import is_model_loaded
+    from database.db_loader import get_cached_rules
+
+    rules = get_cached_rules()
     return {
         "status": "ok",
         "ml_model_loaded": is_model_loaded(),
+        # DB 규칙 로드 여부: 각 항목 건수로 확인
+        "db_rules_loaded": {
+            "urgency_keywords":       len(rules["urgency_keywords"]),
+            "short_url_domains":      len(rules["short_url_domains"]),
+            "personal_info_patterns": len(rules["personal_info_patterns"]),
+        },
     }
+
 
 # ── 프론트엔드 정적 파일 서빙 ────────────────────────────────────
 # ngrok 터널 1개로 백엔드+프론트엔드를 함께 제공하기 위한 설정
