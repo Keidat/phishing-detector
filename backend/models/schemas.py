@@ -54,13 +54,14 @@ class DetectedItem(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     """POST /analyze 응답"""
-    score: int                    # 최종 종합 점수 0~100
-    level: str                    # "안전" | "주의" | "위험"
-    rule_score: int               # 규칙 기반 점수
-    ml_score: int                 # ML 모델 점수
-    ml_probability: float         # ML 피싱 확률 0.0~1.0
-    llm_score: int | None = None  # LLM 점수 (호출된 경우만)
-    llm_reason: str | None = None # LLM 자연어 설명
-    detected: list[DetectedItem]  # 탐지된 항목 목록
-    advice: str                   # 대처법 안내 문구
-    llm_used: bool = False        # LLM 호출 여부 (디버그용)
+    score: int                      # 최종 종합 점수 0~100
+    level: str                      # "안전" | "주의" | "위험"
+    rule_score: int                 # 규칙 기반 점수
+    ml_score: int                   # ML 모델 점수
+    ml_probability: float           # ML 피싱 확률 0.0~1.0
+    llm_score: int | None = None    # LLM 점수 (호출된 경우만)
+    llm_reason: str | None = None   # LLM 자연어 설명
+    detected: list[DetectedItem]    # 탐지된 항목 목록
+    advice: str                     # 대처법 안내 문구
+    llm_used: bool = False          # LLM 호출 여부 (디버그용)
+    llm_engine: str | None = None   # [신규] 최종 판단에 사용된 LLM 엔진 ("groq" | "gemini" | None)

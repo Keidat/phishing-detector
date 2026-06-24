@@ -47,10 +47,31 @@ class RuleResult(TypedDict):
 # 보안 이유: URL 길이를 2000자로 제한 — 매우 긴 URL로 정규식 엔진을
 #            과부하시키는 ReDoS(정규식 서비스 거부) 공격 방어
 URL_PATTERN = re.compile(
-    r'https?://[^\s<>"\']{1,2000}|'   # http/https URL
-    r'www\.[^\s<>"\']{1,2000}',        # www. 로 시작하는 URL
+    r'https?://[^\s<>"\']{1,2000}|'             # http/https URL
+    r'www\.[^\s<>"\']{1,2000}|'                 # www. 로 시작하는 URL
+    r'\b[a-zA-Z0-9-]{2,63}\.[a-zA-Z]{2,10}\b', # 프로토콜 없는 도메인 (예: treemc.host)
     re.IGNORECASE
 )
+
+# ─────────────────────────────────────────────
+# 1-1. 안전 도메인 화이트리스트
+# ─────────────────────────────────────────────
+# 프로토콜 없는 도메인 패턴은 오탐율이 높으므로,
+# 널리 알려진 안전 도메인은 탐지 대상에서 제외한다.
+# 목록은 국내외 주요 서비스 도메인으로 구성함.
+KNOWN_SAFE_DOMAINS: set[str] = {
+    "gmail.com",
+    "naver.com",
+    "kakao.com",
+    "daum.net",
+    "google.com",
+    "youtube.com",
+    "instagram.com",
+    "facebook.com",
+    "samsung.com",
+    "apple.com",
+    "microsoft.com",
+}
 
 # ─────────────────────────────────────────────
 # 2. 가중치 설정 (합계가 rule_score 100점 기준)
@@ -86,6 +107,9 @@ async def check_virustotal(url: str, api_key: str) -> bool:
       - API 키를 함수 인자로 받아 모듈 전역에 노출하지 않음
       - 타임아웃 10초 설정 — 외부 API 응답 지연으로 인한 서비스 블로킹 방지
       - 악성 엔진이 3개 이상일 때만 '악성'으로 판정 (오탐 최소화)
+
+    Args:
+        url: 조회할 URL (프로토콜 없는 도메인의 경우 호출 전에 http:// 접두사가 붙어야 함)
 
     Returns:
         True: 악성 URL 확인됨
@@ -148,10 +172,25 @@ async def analyze_rules(text: str) -> RuleResult:
     personal_info_patterns = rules["personal_info_patterns"]  # list[(Pattern, str)]
 
     # ── 1단계: URL 추출 ──────────────────────────────
+    # URL_PATTERN은 http/https URL, www. URL, 프로토콜 없는 도메인을 모두 추출함
     urls = URL_PATTERN.findall(text)
     vt_api_key = os.getenv("VIRUSTOTAL_API_KEY", "")
 
     for url in urls:
+
+        # ── 안전 도메인 필터링 ───────────────────────
+        # 프로토콜 없는 도메인 패턴은 오탐율이 높으므로,
+        # 추출된 URL/도메인에서 도메인 부분을 파싱해 화이트리스트와 대조한다.
+        # http:// 또는 www. 로 시작하는 URL도 같은 로직으로 처리하며,
+        # 안전 도메인이 포함된 경우 점수 산정 및 VirusTotal 조회에서 제외한다.
+        domain_match = re.search(r'(?:https?://)?(?:www\.)?([^/\s?#"\'<>]{1,253})', url, re.IGNORECASE)
+        extracted_domain = domain_match.group(1).lower() if domain_match else ""
+
+        # 추출한 도메인이 KNOWN_SAFE_DOMAINS에 포함되면 이 URL은 건너뜀
+        if extracted_domain in KNOWN_SAFE_DOMAINS:
+            continue
+
+        # ── URL 탐지 기록 ────────────────────────────
         detected.append({
             "type": "URL",
             "value": url[:100],  # 표시용 길이 제한 (UI 깨짐 방지)
@@ -160,22 +199,22 @@ async def analyze_rules(text: str) -> RuleResult:
         raw_score += WEIGHTS["url_exists"]
 
         # ── 2단계: 단축 URL 확인 ─────────────────────
-        # URL에서 도메인만 추출해서 단축 URL 목록과 대조
-        domain_match = re.search(r'(?:https?://)?(?:www\.)?([^/\s]+)', url, re.IGNORECASE)
-        if domain_match:
-            domain = domain_match.group(1).lower()
-            if domain in short_url_domains:
-                detected.append({
-                    "type": "short_url",
-                    "value": url[:100],
-                    "reason": f"단축 URL 사용 — 실제 목적지가 숨겨져 있음 ({domain})"
-                })
-                raw_score += WEIGHTS["short_url"]
+        # 앞서 파싱한 도메인을 단축 URL 목록과 대조
+        if extracted_domain and extracted_domain in short_url_domains:
+            detected.append({
+                "type": "short_url",
+                "value": url[:100],
+                "reason": f"단축 URL 사용 — 실제 목적지가 숨겨져 있음 ({extracted_domain})"
+            })
+            raw_score += WEIGHTS["short_url"]
 
         # ── 5단계: VirusTotal API 조회 ───────────────
-        # 네트워크 비용이 있으므로 URL이 있을 때만 호출
+        # 네트워크 비용이 있으므로 URL이 있을 때만 호출.
+        # 프로토콜 없는 도메인(예: treemc.host)은 VirusTotal이 올바르게
+        # 인식하도록 "http://" 접두사를 붙여서 조회한다.
         if vt_api_key:
-            is_malicious = await check_virustotal(url, vt_api_key)
+            vt_url = url if url.startswith(("http://", "https://")) else f"http://{url}"
+            is_malicious = await check_virustotal(vt_url, vt_api_key)
             if is_malicious:
                 detected.append({
                     "type": "URL",

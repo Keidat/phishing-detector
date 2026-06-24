@@ -66,7 +66,6 @@ def get_advice(level: str, detected: list[dict]) -> str:
         if "personal_info" in types:
             extras.append("개인정보나 금융정보를 입력했다면 즉시 해당 기관에 신고하고 비밀번호를 변경하세요.")
         if not has_url and not has_phone and "personal_info" not in types:
-            # URL/전화/개인정보 패턴 없이 LLM 판단만으로 위험도가 높게 나온 경우
             extras.append("문자 내용이 의심스럽습니다. 발신자에게 직접 연락하지 말고 사실 여부를 따로 확인하세요.")
 
         extras.append("한국인터넷진흥원(KISA) 불법스팸대응센터 118로 신고할 수 있습니다.")
@@ -99,8 +98,6 @@ def calculate_final_score(
       단순 가중 평균으로 점수가 희석되어 위험한 문자가
       "주의"로 과소 분류되는 것을 방지하기 위해
       가중 평균과 LLM 점수 중 더 높은 쪽을 최종 점수로 채택한다.
-      (실제 보안 탐지 시스템에서도 강한 단일 신호가 있으면
-       전체 위험도를 보수적으로—즉 위험 쪽으로—재평가하는 방식을 사용함)
     """
     if llm_score is not None:
         weighted = (
@@ -137,16 +134,14 @@ async def analyze(request: Request, body: AnalyzeRequest) -> AnalyzeResponse:
     POST /analyze
 
     요청: {"text": "[국민은행] 계좌 정지! 즉시 확인: http://bit.ly/abc"}
-    응답: score, level, detected 목록, advice, llm_reason 등
+    응답: score, level, detected 목록, advice, llm_reason, llm_engine 등
     """
     text = body.text
 
     # ── 규칙 기반 + ML 병렬 실행 ───────────────────────────────────
-    # asyncio.gather 로 두 탐지를 동시 실행 — 응답 속도 개선
-    # (순차 실행 대비 ML 처리 시간만큼 단축)
     rule_result, ml_result = await asyncio.gather(
         analyze_rules(text),
-        asyncio.to_thread(ml_predict, text),  # 동기 함수를 스레드풀에서 실행
+        asyncio.to_thread(ml_predict, text),
     )
 
     rule_score: int        = rule_result["rule_score"]
@@ -157,13 +152,13 @@ async def analyze(request: Request, body: AnalyzeRequest) -> AnalyzeResponse:
     # ── 중간 점수: LLM 호출 여부 결정에 사용 ──────────────────────
     intermediate = calculate_final_score(rule_score, ml_score, None)
 
-    # ── LLM 선택적 호출 (40~70점 구간만) ──────────────────────────
-    # 비용 절감: 명확한 안전/위험 케이스는 LLM 없이 빠르게 응답
+    # ── LLM 선택적 호출 ────────────────────────────────────────────
     llm_score:  int | None = None
     llm_reason: str | None = None
     llm_used:   bool       = False
+    llm_engine: str | None = None  # [신규] 최종 판단에 사용된 LLM 엔진
 
-    if LLM_CALL_MIN <= intermediate <= LLM_CALL_MAX:
+    if True:
         llm_result = await analyze_llm(
             text=text,
             rule_score=rule_score,
@@ -173,6 +168,7 @@ async def analyze(request: Request, body: AnalyzeRequest) -> AnalyzeResponse:
         llm_score  = llm_result["llm_score"]
         llm_reason = llm_result.get("llm_reason")
         llm_used   = llm_result.get("llm_used", False)
+        llm_engine = llm_result.get("llm_engine")  # [신규] 엔진 정보 추출
 
     # ── 최종 점수 + 레벨 + 대처법 ─────────────────────────────────
     final_score = calculate_final_score(rule_score, ml_score, llm_score)
@@ -190,4 +186,5 @@ async def analyze(request: Request, body: AnalyzeRequest) -> AnalyzeResponse:
         detected=[DetectedItem(**item) for item in detected],
         advice=advice,
         llm_used=llm_used,
+        llm_engine=llm_engine,  # [신규] 응답에 엔진 정보 포함
     )

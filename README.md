@@ -136,7 +136,7 @@ phishing-detector/
 ### 1. 저장소 클론 및 의존성 설치
 
 ```bash
-git clone https://github.com/your-username/phishing-detector.git
+git clone https://github.com/Keidat/phishing-detector
 cd phishing-detector
 pip install -r requirements.txt
 ```
@@ -165,6 +165,17 @@ VIRUSTOTAL_API_KEY=...               # https://www.virustotal.com (무료)
 ```bash
 cd backend
 python database/init_db.py
+```
+
+출력 예시:
+```
+[PhishGuard DB] DB 파일 생성 중: .../backend/database/phishguard.db
+[PhishGuard DB] 테이블 생성 중...
+[PhishGuard DB] 시드 데이터 삽입 중...
+[PhishGuard DB] 초기화 완료!
+  - urgency_keywords      : 46개
+  - short_url_domains     : 20개
+  - personal_info_patterns: 6개
 ```
 
 > **주의:** DB 파일이 이미 존재하면 덮어쓰지 않고 안내 메시지를 출력합니다.

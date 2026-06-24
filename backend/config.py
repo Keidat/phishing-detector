@@ -16,6 +16,7 @@ load_dotenv()
 # ── API 키 ─────────────────────────────────────
 VIRUSTOTAL_API_KEY: str = os.getenv("VIRUSTOTAL_API_KEY", "")
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")  # Anthropic → Gemini로 변경
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
 # ── 서버 설정 ───────────────────────────────────
 ALLOWED_ORIGINS: list[str] = os.getenv(
@@ -33,6 +34,8 @@ MAX_TEXT_LENGTH: int = 1000
 # gemini-1.5-flash: 무료 티어 지원, 빠른 응답 속도
 LLM_MODEL: str = "gemini-flash-lite-latest"
 LLM_MAX_TOKENS: int = 2048
+GROQ_MODEL: str = "llama-3.3-70b-versatile"
+GROQ_MAX_TOKENS: int = 500
 
 # ── 점수 임계값 ─────────────────────────────────
 # 40~70점 구간에서만 LLM 호출 (비용 및 속도 최적화)
